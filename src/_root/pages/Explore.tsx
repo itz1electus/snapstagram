@@ -4,14 +4,20 @@ import { Input } from "@/components/ui/input"
 import useDebounce from "@/hooks/useDebounce";
 import { useGetPosts, useSearchPost } from "@/lib/react-query/queriesAndMutations";
 import { Loader } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useInView } from "react-intersection-observer";
 
 const Explore = () => {
+  const { ref, inView } = useInView();
   const { data: posts, fetchNextPage, hasNextPage } = useGetPosts();
 
   const [searchValue, setSearchValue] = useState('');
   const debouncedValue = useDebounce(searchValue, 500);
   const { data: searchedPosts, isPending: isSearchFetching } = useSearchPost(debouncedValue);
+
+  useEffect(() => {
+    if(hasNextPage && !searchValue) fetchNextPage();
+  }, [inView, searchValue])
 
   if(!posts) {
     return (
@@ -50,13 +56,22 @@ const Explore = () => {
 
       <div className="flex flex-wrap gap-9 w-full max-w-5xl">
         { shouldShowSearchResults ? (
-          <SearchResults />
+          <SearchResults 
+            isSearchFetching={isSearchFetching}
+            searchedPosts={searchedPosts}
+          />
         ) : shouldShowPosts ? (
           <p className="text-light-4 mt-10 text-center w-full">End of posts</p>
         ) : posts.pages.map((item, index) => (
           <GridPostList key={`page-${index}`} posts={item.documents}/>
         ))}
       </div>
+
+      {hasNextPage && !searchValue && (
+        <div ref={ref} className="mt-10">
+          <Loader />
+        </div>
+      )}
     </div>
   )
 }
